@@ -1,0 +1,19 @@
+# Gradle & Android build outputs
+.gradle/
+.kotlin/
+**/build/
+dist/
+*.apk
+local.properties
+
+# IDE & OS files
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystores (keep private unless explicitly committed for CI)
+*.jks
+*.keystore

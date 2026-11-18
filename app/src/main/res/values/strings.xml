@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dynamic Capsule</string>
+    <string name="accessibility_service_label">Dynamic Capsule (Overlay)</string>
+    <string name="accessibility_service_description">Affiche la Dynamic Capsule interactive flottante autour du poinçon/encoche par-dessus toutes les applications et la barre d\'état.</string>
+    <string name="notification_listener_label">Dynamic Capsule (Médias &amp; Notifications)</string>
+</resources>

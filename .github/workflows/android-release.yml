@@ -1,0 +1,94 @@
+name: Android CI & Release APK
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    name: Build APK & Run Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Extract version from tag or version.properties
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VER_NAME="${GITHUB_REF#refs/tags/v}"
+          else
+            MAJOR=$(grep VERSION_MAJOR version.properties | cut -d= -f2)
+            MINOR=$(grep VERSION_MINOR version.properties | cut -d= -f2)
+            PATCH=$(grep VERSION_PATCH version.properties | cut -d= -f2)
+            VER_NAME="${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          echo "version_name=${VER_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Build Debug & Release APKs
+        run: ./gradlew assembleDebug assembleRelease
+
+      - name: Rename APKs for distribution
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/DynamicCapsule-v${{ steps.version.outputs.version_name }}-debug.apk"
+          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
+            cp app/build/outputs/apk/release/app-release.apk "dist/DynamicCapsule-v${{ steps.version.outputs.version_name }}.apk"
+          elif [ -f app/build/outputs/apk/release/app-release-unsigned.apk ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk "dist/DynamicCapsule-v${{ steps.version.outputs.version_name }}.apk"
+          fi
+
+      - name: Upload APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DynamicCapsule-v${{ steps.version.outputs.version_name }}-APKs
+          path: dist/*.apk
+
+      - name: Extract Release Notes from CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: changelog
+        run: |
+          awk '/^## \[/ { if (p) exit; p=1; next } p' CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "Release ${{ github.ref_name }} of Dynamic Capsule." > release_notes.md
+          fi
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Dynamic Capsule ${{ github.ref_name }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          files: |
+            dist/DynamicCapsule-v${{ steps.version.outputs.version_name }}.apk
+            dist/DynamicCapsule-v${{ steps.version.outputs.version_name }}-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
